@@ -1,89 +1,107 @@
+from dataset import VintageFacesDataset
+from torch.utils.data import DataLoader
 import torch
-import torch.nn as nn
+from unet import UNet
 import torch.optim as optim
-from model import Generator, Discriminator
-from data_utils import train_data_generator, get_steps_per_epoch
+import torch.nn as nn
 import os
 
-# Hyperparameters
-lr = 0.0005
+train_dir = '/content/sample_data/UTKFaces/train'
+val_dir = '/content/sample_data/UTKFaces/val'
+img_size = 256
+in_chs, out_chs = 1, 2
 batch_size = 8
-image_size = 256
-channels_img_in = 1
-channels_img_out = 2
+lr = 0.0005
 num_epochs = 50
-features_g = 8
-discriminator_updates_mod = 2
-dataset_path = './dataset'
-continue_flag, from_epoch = False, 0
-steps_per_epoch = get_steps_per_epoch(dataset_path)
-model_weights_save_path = './model_weights'
+steps_per_epoch = 800
+model_weights_path = './model_weights'
+train_continue_flag, continue_epoch = True, 27
 
-data_loader = train_data_generator(dataset_path, continue_flag)
+train_data = VintageFacesDataset(
+    img_dir=train_dir, 
+    size=img_size
+)
+
+val_data = VintageFacesDataset(
+    img_dir=val_dir, 
+    size=img_size
+)
+
+train_dataloader = DataLoader(
+    train_data, 
+    batch_size=batch_size, 
+    shuffle=True
+)
+
+val_dataloader = DataLoader(
+    val_data, 
+    batch_size=batch_size, 
+    shuffle=True
+)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Create discriminator and generator
-if continue_flag:
-    netD = torch.load(model_weights_save_path + "/discriminator/" + str(from_epoch-1) + '.pth')
-    netG = torch.load(model_weights_save_path + "/generator/" + str(from_epoch-1) + '.pth')
-    print("Training Restarted")
-else:
-    netD = Discriminator(channels_img_out).to(device)
-    netG = Generator(channels_img_in, features_g, channels_img_out).to(device)
-    print("Training Started")
+net = UNet(in_channels=in_chs, out_channels=out_chs, init_features=32).to(device)
 
-# Setup Optimizer for G and D
-optimizerD = optim.Adam(netD.parameters(), lr, betas=(0.5, 0.999))
-optimizerG = optim.Adam(netG.parameters(), lr, betas=(0.5, 0.999))
+if train_continue_flag:
+    net.load_state_dict(torch.load(os.path.join(model_weights_path, 'epoch_' + str(continue_epoch-1) + '.pth')))
 
-netG.train()
-netD.train()
+criterion = nn.L1Loss()
+optimizer = optim.Adam(
+    net.parameters(), 
+    lr, 
+    betas=(0.5, 0.999)
+)
 
-criterion = nn.BCELoss()
+train_loss = []
+val_loss = []
+best_loss = float('inf')
+for epoch in range(continue_epoch, num_epochs):
+    net.train(True)
+    epoch_loss = 0.0
+    batch_idx = 1
+    for (x, y) in train_dataloader:
 
-for epoch in range(num_epochs):
-    for batch_idx, (data, targets) in enumerate(data_loader):
+        x = x.to(device)
+        y = y.to(device)
         
-        data = torch.from_numpy(data).permute(0, 3, 1, 2).to(device)
-        targets = torch.from_numpy(targets).permute(0, 3, 1, 2).to(device)
+        # zero the parameter gradients
+        optimizer.zero_grad()
+        
+        # forward + backward + optimize
+        outputs = net(x)
+        loss = criterion(outputs, y)
+        loss.backward()
+        optimizer.step()
 
-        ### Train Discriminator: max log(D(x)) + log(1 - D(G(z)))
-        if batch_idx % discriminator_updates_mod == 0:
-            netD.zero_grad()
-            output = netD(targets).reshape(-1)
-            label = (torch.ones(output.shape)*0.9).to(device)
-            lossD_real = criterion(output, label)
-            lossD_real.backward()
-
-            fake = netG(data)
-            output = netD(fake.detach()).reshape(-1)
-            label = (torch.ones(output.shape)*0.1).to(device)
-            lossD_fake = criterion(output, label)
-            lossD_fake.backward()
-
-            lossD = (lossD_real + lossD_fake) 
-            optimizerD.step()
-        else: fake = netG(data)
-
-        ### Train Generator: max log(D(G(z)))
-        netG.zero_grad()
-        output = netD(fake).reshape(-1)
-        label = torch.ones(output.shape).to(device)
-        lossG = criterion(output, label)
-        lossG.backward()
-        optimizerG.step()
+        epoch_loss += loss.item()
+        if batch_idx % 50 == 0:
+            print('Train Loss:', loss.item())
 
         if batch_idx == steps_per_epoch: break
-        if batch_idx % 50 == 0: 
-            print("Epoch:", epoch, "Batches_done: ", batch_idx)
-            print("D_loss:", lossD/2)
-            print("G_loss:", lossG)
-            print()
+        batch_idx += 1
 
-    torch.save(netG, model_weights_save_path + "/generator/" + str(epoch+from_epoch) + '.pth')
-    torch.save(netD, model_weights_save_path + "/discriminator/" + str(epoch+from_epoch) + '.pth')
+    torch.save(net.state_dict(), os.path.join(model_weights_path, 'epoch_' + str(epoch) + '.pth'))
+    train_loss.append(epoch_loss/batch_idx)
+
+    net.train(False)
+    with torch.no_grad():
+        x, y = next(iter(val_dataloader))
         
+        x = x.to(device)
+        y = y.to(device)
 
+        # forward pass
+        outputs = net(x)
+        loss = criterion(outputs, y)
+        val_loss.append(loss.item())
+        if best_loss > loss.item():
+            best_loss = loss.item()
+            torch.save(net.state_dict(), os.path.join(model_weights_path, 'early_stopping.pth'))
+        
+        print('Epoch No:', epoch, ' ', 'Validation Loss:', loss.item())
+        print()
+
+        
 
 

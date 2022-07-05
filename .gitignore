@@ -127,3 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Pytorch model weights
+*.pth
+
+#Dataset Directory
+UTKFaces/
