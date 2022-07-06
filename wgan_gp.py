@@ -6,7 +6,7 @@ import os
 from torch.autograd import Variable
 from torch.autograd import grad as torch_grad
 
-class WGAN_GP():
+class WGAN_GP:
     def __init__(self,
         in_channels_gen             = 1, 
         init_features_gen           = 32, 
@@ -24,13 +24,13 @@ class WGAN_GP():
         
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        gen = Generator(
+        self.gen = Generator(
             in_channels=self.in_channels_gen,
             init_features=self.init_channels_gen,
             out_channels=self.out_channels_gen
         ).to(self.device)
 
-        disc = Discriminator(
+        self.disc = Discriminator(
             in_channels=self.in_channels_disc,
             init_features=self.init_channels_disc,
         ).to(self.device)
@@ -57,46 +57,47 @@ class WGAN_GP():
         self.optm_disc.step()
 
         # Record loss
-        self.losses['GP'].append(gradient_penalty)
-        self.losses['D'].append(d_loss.data[0])
+        self.losses['GP'].append(gradient_penalty.item())
+        self.losses['D'].append(d_loss.item())
 
         return
 
-    def _gen_train_iteration(self, X):
+    def _gen_train_iter(self, X):
         
-        self.G_opt.zero_grad()
+        self.optm_gen.zero_grad()
         y_ = self.gen(X)
 
         # Calculate loss and optimize
-        d_gen = self.D(y_)
+        d_gen = self.disc(y_)
         g_loss = -d_gen.mean()
         g_loss.backward()
-        self.G_opt.step()
+        self.optm_gen.step()
 
         # Record loss
-        self.losses['G'].append(g_loss)
+        self.losses['G'].append(g_loss.item())
 
         return
 
     def _gradient_penalty(self, y, y_):
+
         alpha = torch.rand(self.batch_size, 1, 1, 1)
         alpha = alpha.expand_as(y).to(self.device)
 
         interpolated = alpha * y + (1 - alpha) * y_
         interpolated = Variable(interpolated, requires_grad=True).to(self.device)
 
-        prob_interpolated = self.disc(interpolated)
+        prob_interpolated = self.disc(interpolated).to(self.device)
 
         gradients = torch_grad(
-            outputs=prob_interpolated, 
-            inputs=interpolated,
-            grad_outputs=torch.ones(prob_interpolated.size()),
-            create_graph=True, 
-            retain_graph=True
+            outputs      = prob_interpolated, 
+            inputs       = interpolated,
+            grad_outputs = torch.ones(prob_interpolated.size()).to(self.device),
+            create_graph = True, 
+            retain_graph = True
         )[0]
 
         gradients = gradients.view(self.batch_size, -1)
-        self.losses['gradient_norm'].append(gradients.norm(2, dim=1).mean().data[0])
+        self.losses['gradient_norm'].append(gradients.norm(2, dim=1).mean().item())
         gradients_norm = torch.sqrt(torch.sum(gradients ** 2, dim=1) + 1e-12)
 
         return self.gp_lambda * ((gradients_norm - 1) ** 2).mean()
@@ -107,15 +108,15 @@ class WGAN_GP():
 
             self._disc_train_iter(X, y)
 
-            if self.num_steps % self.disc_iters == 0:
+            if i % self.disc_iter == 0:
                 self._gen_train_iter(X)
 
             if i % self.verbose_every == 0:
-                print("Iteration {}".format(i + 1))
+                print("\nIteration {}".format(i + 1))
                 print("D: {}".format(self.losses['D'][-1]))
                 print("GP: {}".format(self.losses['GP'][-1]))
                 print("Gradient norm: {}".format(self.losses['gradient_norm'][-1]))
-                if i > self.disc_iters:
+                if i > self.disc_iter:
                     print("G: {}".format(self.losses['G'][-1]))
 
         if self.save_epoch:
@@ -181,7 +182,7 @@ class WGAN_GP():
         for self.epoch in range(1, epochs+1):
             print("\nEpoch {}".format(self.epoch))
             self._train_epoch()
-            
+
         return
 
     

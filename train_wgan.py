@@ -5,14 +5,16 @@ train_data = VintageFacesDataset(
     img_dir                     = './UTKFaces/train', 
     size                        = 256
 )
-wgan = WGAN_GP(
+
+wgan_gp = WGAN_GP(
     in_channels_gen             = 1,
     init_features_gen           = 32,
     out_channels_gen            = 2,
     in_channels_disc            = 2,
     init_features_disc          = 8
 )
-wgan.train(
+
+wgan_gp.train(
     train_data                  = train_data,
     epochs                      = 25,
     batch_size                  = 8,
