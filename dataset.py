@@ -17,12 +17,11 @@ class VintageFacesDataset(Dataset):
         return len(self.img_paths)
 
     def __getitem__(self, idx):
-        # Read image
         rgb = np.float32(imread(self.img_paths[idx]))
+        
         if len(rgb.shape) != 3:
-            rgb = np.zeros((rgb.shape[0], rgb.shape[1], 3), dtype=np.uint8)
+            rgb = np.zeros((rgb.shape[0], rgb.shape[1], 3), dtype=np.float32)
 
-        # Resize the image to new size
         rgb = transform.resize(
                 image=rgb[:, :, :3], 
                 output_shape=(self.size, self.size),
@@ -31,20 +30,31 @@ class VintageFacesDataset(Dataset):
                 anti_aliasing=True,
                 preserve_range=True
             )
-        
-        # Clip to original range
+
         rgb = np.uint8(np.clip(rgb, 0, 255))
 
-        # Convert rgb to ycbcr
         lab = color.rgb2lab(rgb)
 
         L = np.zeros((1, self.size, self.size), dtype=np.float32)
-        ab = np.zeros((2, self.size, self.size), dtype=np.float32)
-        L[0] = lab[:, :, 0] / 100
-        ab[0] = lab[:, :, 1]
-        ab[1] = lab[:, :, 2]
+        lab_new = np.zeros((3, self.size, self.size), dtype=np.float32)
+    
+        rnd = np.random.randint(low=0, high=100, size=(self.size, self.size), dtype=np.uint8)
+        L[0] = (np.where(rnd > 97, 100, lab[:, :, 0]) / 50) - 1
+
+        lab_new[0] = (lab[:, :, 0] / 50) - 1
+        lab_new[1] = lab[:, :, 1] / 128
+        lab_new[2] = lab[:, :, 2] / 128
         
-        return torch.from_numpy(L), torch.from_numpy(ab)
+        return torch.from_numpy(L), torch.from_numpy(lab_new)
+
+    def back_transform(self, from_nn):
+        lab_reshaped = from_nn.detach().cpu().numpy()
+        lab_new = np.zeros((256, 256, 3), dtype=np.float32)
+        lab_new[:, :, 0] = np.clip((lab_reshaped[0, 0, :, :] + 1) * 50, 0, 100)
+        lab_new[:, :, 1] = np.clip(lab_reshaped[0, 1, :, :] * 128, -127, 127)
+        lab_new[:, :, 2] = np.clip(lab_reshaped[0, 2, :, :] * 128, -127, 127)
+        rgb_new = np.clip(color.lab2rgb(lab_new) * 255, 0, 255)
+        return np.uint8(rgb_new)
 
 
 

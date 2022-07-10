@@ -5,7 +5,7 @@ from collections import OrderedDict
 
 class Generator(nn.Module):
 
-    def __init__(self, in_channels=1, out_channels=2, init_features=32):
+    def __init__(self, in_channels=1, out_channels=3, init_features=32):
         super(Generator, self).__init__()
 
         features = init_features
@@ -61,7 +61,7 @@ class Generator(nn.Module):
         dec1 = self.upconv1(dec2)
         dec1 = torch.cat((dec1, enc1), dim=1)
         dec1 = self.decoder1(dec1)
-        return torch.tanh(self.conv(dec1)) * 127
+        return torch.tanh(self.conv(dec1))
 
     @staticmethod
     def _block(in_channels, features, name):
@@ -96,26 +96,44 @@ class Generator(nn.Module):
             )
         )
 
+class ResBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, downsample):
+        super().__init__()
+        if downsample:
+            self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=2, padding=1)
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=2),
+                nn.InstanceNorm2d(out_channels, affine=True)
+            )
+        else:
+            self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1)
+            self.shortcut = nn.Sequential()
+
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1)
+        self.bn1 = nn.InstanceNorm2d(out_channels, affine=True)
+        self.bn2 = nn.InstanceNorm2d(out_channels, affine=True)
+
+    def forward(self, x):
+        shortcut = self.shortcut(x)
+        x = nn.LeakyReLU(0.2, inplace=True)(self.bn1(self.conv1(x)))
+        x = nn.LeakyReLU(0.2, inplace=True)(self.bn2(self.conv2(x)))
+        y = x + shortcut
+        return y
+
 class Discriminator(nn.Module):
     def __init__(self, in_channels, init_features):
         super(Discriminator, self).__init__()
         self.net = nn.Sequential(
-            nn.Conv2d(in_channels, init_features, kernel_size=3, stride=2, padding='valid'),
-            nn.InstanceNorm2d(init_features, affine=True),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(init_features, 2*init_features, kernel_size=3, stride=2, padding='valid'),
-            nn.InstanceNorm2d(2*init_features, affine=True),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(2*init_features, 4*init_features, kernel_size=3, stride=2, padding='valid'),
-            nn.InstanceNorm2d(4*init_features, affine=True),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(4*init_features, 8*init_features, kernel_size=3, stride=2, padding='valid'),
-            nn.InstanceNorm2d(8*init_features, affine=True),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(8*init_features, 16*init_features, kernel_size=3, stride=2, padding='valid')
+            ResBlock(in_channels, init_features, True),
+            ResBlock(init_features, 2*init_features, True),
+            ResBlock(2*init_features, 4*init_features, True),
+            ResBlock(4*init_features, 8*init_features, True)
         )
+        self.linear = nn.Linear(8*init_features, 1)
         return
 
     def forward(self, x):
-        y = torch.mean(self.net(x), dim=(1, 2, 3))
+        y = torch.mean(self.net(x), dim=(2, 3))
+        print(y.shape)
+        y = self.linear(y)
         return y
