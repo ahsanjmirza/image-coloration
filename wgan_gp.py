@@ -143,7 +143,6 @@ class WGAN_GP:
         steps_per_epoch         = 1500,
         batch_size              = 8,
         lr_gen                  = 1e-4,
-        betas_gen               = (.9, .99),
         lr_disc                 = 1e-4,
         disc_iter               = 5,
         verbose_every           = 50,  
@@ -163,15 +162,16 @@ class WGAN_GP:
         self.steps_per_epoch    = steps_per_epoch
         self.loss_gamma         = loss_gamma
 
-        self.optm_gen = optim.Adam(
+        self.optm_gen = optim.RMSprop(
                 self.gen.parameters(),
                 lr=lr_gen,
-                betas=betas_gen
-            )
+                momentum=0
+        )
 
         self.optm_disc = optim.RMSprop(
             self.disc.parameters(),
-            lr=lr_disc
+            lr=lr_disc,
+            momentum=0
         )
 
         if continue_epoch != 0:

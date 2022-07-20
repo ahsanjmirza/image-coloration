@@ -1,8 +1,11 @@
 from wgan_gp import WGAN_GP
 from dataset import VintageFacesDataset
 
+import warnings
+warnings.filterwarnings('ignore')
+
 train_data = VintageFacesDataset(
-    img_dir                     = '/content/sample_data/UTKFaces/train', 
+    img_dir                     = './UTKFaces/train', 
     size                        = 256
 )
 
@@ -20,13 +23,12 @@ wgan_gp.train(
     steps_per_epoch             = 1500,
     batch_size                  = 8,
     lr_gen                      = 1e-4,
-    betas_gen                   = (.5, .99),
-    lr_disc                     = 1e-2
+    lr_disc                     = 1e-4,
     disc_iter                   = 5,
     verbose_every               = 50,
     save_every_epoch            = True,
     save_weights_dir            = './model_weights',
     gp_lambda                   = 10,
-    loss_gamma                  = 0.7,
+    loss_gamma                  = 0.6,
     continue_epoch              = 0
 )
