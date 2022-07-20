@@ -134,6 +134,5 @@ class Discriminator(nn.Module):
 
     def forward(self, x):
         y = torch.mean(self.net(x), dim=(2, 3))
-        print(y.shape)
         y = self.linear(y)
         return y

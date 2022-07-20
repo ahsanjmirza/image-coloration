@@ -7,7 +7,7 @@ import os
 from torch.autograd import Variable
 from torch.autograd import grad as torch_grad
 import pandas as pd
-from imageio import imread, imwrite
+from imageio import imwrite
 
 class WGAN_GP:
     def __init__(self,
@@ -46,7 +46,6 @@ class WGAN_GP:
     def _disc_train_iter(self, X, y):
         
         y_ = self.gen(X)
-        print('gen ok')
         d_real = self.disc(y)
         d_gen = self.disc(y_)
 
@@ -90,7 +89,7 @@ class WGAN_GP:
             outputs      = prob_interpolated, 
             inputs       = interpolated,
             grad_outputs = torch.ones(prob_interpolated.size()).to(self.device),
-            create_graph = True, 
+            create_graph =  True, 
             retain_graph = True
         )[0]
 
@@ -140,13 +139,12 @@ class WGAN_GP:
 
     def train(self,
         train_data              = None,
-        epochs                  = 25, 
+        epochs                  = 150, 
         steps_per_epoch         = 1500,
         batch_size              = 8,
         lr_gen                  = 1e-4,
         betas_gen               = (.9, .99),
         lr_disc                 = 1e-4,
-        betas_disc              = (.9, .99),
         disc_iter               = 5,
         verbose_every           = 50,  
         save_every_epoch        = True,
@@ -171,10 +169,9 @@ class WGAN_GP:
                 betas=betas_gen
             )
 
-        self.optm_disc = optim.Adam(
+        self.optm_disc = optim.RMSprop(
             self.disc.parameters(),
-            lr=lr_disc,
-            betas=betas_disc
+            lr=lr_disc
         )
 
         if continue_epoch != 0:

@@ -21,8 +21,7 @@ wgan_gp.train(
     batch_size                  = 8,
     lr_gen                      = 1e-4,
     betas_gen                   = (.5, .99),
-    lr_disc                     = 1e-4,
-    betas_disc                  = (.5, .99),
+    lr_disc                     = 1e-2
     disc_iter                   = 5,
     verbose_every               = 50,
     save_every_epoch            = True,
