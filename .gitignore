@@ -131,6 +131,10 @@ dmypy.json
 # Pytorch model weights
 *.pth
 
-#Dataset Directory
+# Dataset Directory
 dataset/
 dataset_in/
+
+# Zip Files
+*.zip
+*.7z

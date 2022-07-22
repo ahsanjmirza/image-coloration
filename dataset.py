@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import Dataset
 from imageio import imread
 import numpy as np
-from skimage import transform, color
+from skimage import color
 import os
 
 class VintageFacesDataset(Dataset):
@@ -17,21 +17,11 @@ class VintageFacesDataset(Dataset):
         return len(self.img_paths)
 
     def __getitem__(self, idx):
-        rgb = np.float32(imread(self.img_paths[idx]))
+        print(self.img_paths[idx])
+        rgb = imread(self.img_paths[idx])
         
         if len(rgb.shape) != 3:
-            rgb = np.zeros((rgb.shape[0], rgb.shape[1], 3), dtype=np.float32)
-
-        rgb = transform.resize(
-                image=rgb[:, :, :3], 
-                output_shape=(self.size, self.size),
-                order=1,
-                mode='reflect',
-                anti_aliasing=True,
-                preserve_range=True
-            )
-
-        rgb = np.uint8(np.clip(rgb, 0, 255))
+            rgb = np.zeros((rgb.shape[0], rgb.shape[1], 3), dtype=np.uint8)
 
         lab = color.rgb2lab(rgb)
 

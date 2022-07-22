@@ -5,13 +5,13 @@ import warnings
 warnings.filterwarnings('ignore')
 
 train_data = VintageFacesDataset(
-    img_dir                     = './UTKFaces/train', 
+    img_dir                     = './dataset',
     size                        = 256
 )
 
 wgan_gp = WGAN_GP(
     in_channels_gen             = 1,
-    init_features_gen           = 64,
+    init_features_gen           = 32,
     out_channels_gen            = 3,
     in_channels_disc            = 3,
     init_features_disc          = 8
@@ -20,7 +20,7 @@ wgan_gp = WGAN_GP(
 wgan_gp.train(
     train_data                  = train_data,
     epochs                      = 200,
-    steps_per_epoch             = 1500,
+    steps_per_epoch             = 2000,
     batch_size                  = 8,
     lr_gen                      = 1e-4,
     lr_disc                     = 1e-4,
