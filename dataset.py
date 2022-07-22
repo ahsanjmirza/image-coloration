@@ -17,7 +17,6 @@ class VintageFacesDataset(Dataset):
         return len(self.img_paths)
 
     def __getitem__(self, idx):
-        print(self.img_paths[idx])
         rgb = imread(self.img_paths[idx])
         
         if len(rgb.shape) != 3:

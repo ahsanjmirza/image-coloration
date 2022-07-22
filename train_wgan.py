@@ -11,7 +11,7 @@ train_data = VintageFacesDataset(
 
 wgan_gp = WGAN_GP(
     in_channels_gen             = 1,
-    init_features_gen           = 32,
+    init_features_gen           = 64,
     out_channels_gen            = 3,
     in_channels_disc            = 3,
     init_features_disc          = 8
