@@ -38,9 +38,9 @@ class WGAN_GP:
             init_features=self.init_channels_disc,
         ).to(self.device)
 
-        self.losses = {'G': 0, 'D': 0, 'GP': 0, 'gradient_norm': 0}
-        self.losses_df = pd.DataFrame({'G': [], 'D': [], 'GP': [], 'gradient_norm': []})
-
+        self.losses = {'G': 0, 'D': 0, 'GP': 0, 'gradient_norm': 0, 'L1': 0}
+        self.losses_df = pd.DataFrame({'G': [], 'D': [], 'GP': [], 'gradient_norm': [], 'L1': 0})
+        
         return
 
     def _disc_train_iter(self, X, y):
@@ -67,11 +67,14 @@ class WGAN_GP:
         y_ = self.gen(X)
 
         d_gen = self.disc(y_)
-        g_loss = ((1 - self.loss_gamma)*(-d_gen.mean())) + (self.loss_gamma*self.L1_criterion(y, y_))
+        l1_loss = self.L1_criterion(y, y_)
+        
+        g_loss = ((1 - self.loss_gamma)*(-d_gen.mean())) + (self.loss_gamma*l1_loss)
         g_loss.backward()
         self.optm_gen.step()
 
         self.losses['G'] = g_loss.item()
+        self.losses['L1'] = l1_loss.item()
 
         return
 
@@ -150,7 +153,7 @@ class WGAN_GP:
         save_weights_dir        = './model_weights',
         gp_lambda               = 10,
         loss_gamma              = 0.9,
-        continue_epoch          = 12
+        continue_epoch          = 0
     ):
 
         self.verbose_every      = verbose_every
@@ -163,9 +166,10 @@ class WGAN_GP:
         self.loss_gamma         = loss_gamma
 
         self.optm_gen = optim.RMSprop(
-                self.gen.parameters(),
-                lr=lr_gen,
-                momentum=0
+            self.gen.parameters(),
+            lr=lr_gen,
+            momentum=0,
+            centered=True
         )
 
         self.optm_disc = optim.RMSprop(
@@ -235,5 +239,4 @@ class WGAN_GP:
         return
 
     
-
 

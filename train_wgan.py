@@ -11,7 +11,7 @@ train_data = VintageFacesDataset(
 
 wgan_gp = WGAN_GP(
     in_channels_gen             = 1,
-    init_features_gen           = 32,
+    init_features_gen           = 64,
     out_channels_gen            = 3,
     in_channels_disc            = 3,
     init_features_disc          = 8
@@ -19,7 +19,7 @@ wgan_gp = WGAN_GP(
 
 wgan_gp.train(
     train_data                  = train_data,
-    epochs                      = 55,
+    epochs                      = 200,
     steps_per_epoch             = 1500,
     batch_size                  = 8,
     lr_gen                      = 1e-4,
@@ -29,6 +29,6 @@ wgan_gp.train(
     save_every_epoch            = True,
     save_weights_dir            = './model_weights',
     gp_lambda                   = 10,
-    loss_gamma                  = 0.6,
+    loss_gamma                  = 0.7,
     continue_epoch              = 0
 )
